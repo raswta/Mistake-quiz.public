@@ -2,3 +2,4 @@
   publish = "public"
 [functions]
   directory = "netlify/functions"
+
