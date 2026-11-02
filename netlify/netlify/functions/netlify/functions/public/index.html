@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mistake Notebook</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--ink:#1d2433;--mute:#6b7385;--line:#dedbd2;--acc:#2f5bea;--ok:#1f8a4c;--bad:#c93b3b}
+@media(prefers-color-scheme:dark){:root{--bg:#14171f;--card:#1d212c;--ink:#e8eaf0;--mute:#9099ad;--line:#2f3544;--acc:#6c8cff;--ok:#4cc27f;--bad:#ff7070}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Georgia,"Times New Roman",serif}
+button,input,textarea,select{font:inherit;color:inherit}
+.wrap{max-width:720px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:28px;margin:8px 0 4px}h2{font-size:20px;margin:0 0 10px}
+.mute{color:var(--mute);font-size:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin:14px 0}
+input,textarea,select{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);margin:6px 0}
+textarea{min-height:70px;resize:vertical}
+button{cursor:pointer;border:1px solid var(--line);background:var(--card);padding:9px 14px;border-radius:8px}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+button.p{background:var(--acc);border-color:var(--acc);color:#fff}
+button.x{color:var(--bad);padding:4px 8px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row>*{flex:0 0 auto}.grow{flex:1 1 160px!important}
+.folder{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 0;border-bottom:1px solid var(--line)}
+.folder:last-child{border:0}.folder a{cursor:pointer;font-weight:bold}
+.item{padding:10px 0;border-bottom:1px solid var(--line);display:flex;gap:10px;justify-content:space-between}
+.tag{font-size:12px;border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--mute);margin-right:6px}
+.opt{display:block;width:100%;text-align:left;margin:8px 0;padding:12px}
+.opt.right{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 15%,transparent)}
+.opt.wrong{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 15%,transparent)}
+.by{font-size:12px;color:var(--mute);text-align:right}
+.by a{color:var(--mute);text-decoration:none;display:inline-flex;align-items:center;gap:4px}
+.by a:hover{color:var(--acc)}
+.warn{border:1px solid var(--bad);border-radius:8px;padding:10px 12px;margin:10px 0;font-size:15px;background:color-mix(in srgb,var(--bad) 10%,transparent)}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden}.bar i{display:block;height:100%;background:var(--acc)}
+</style>
+</head>
+<body><div class="wrap"><div class="by">Designed by <a href="https://t.me/raswta" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.4 16.1l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>@raswta</a></div><div id="app"></div></div>
+<script>
+const $=document.getElementById("app");
+let S={user:null,folders:[],view:"folders",fid:null,quiz:null};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid=()=>Math.random().toString(36).slice(2,10);
+const folder=()=>S.folders.find(f=>f.id===S.fid);
+let saveT;
+function save(){clearTimeout(saveT);saveT=setTimeout(()=>fetch("/api/data?u="+S.user,{method:"PUT",body:JSON.stringify({folders:S.folders})}).catch(()=>alert("Could not save. Check your connection.")),400)}
+async function login(name){
+  name=name.toLowerCase().trim();
+  if(!/^[a-z0-9_-]{3,30}$/.test(name))return alert("Username: 3-30 letters, numbers, _ or -");
+  try{const r=await fetch("/api/data?u="+name);if(!r.ok)throw 0;S.folders=(await r.json()).folders}
+  catch{return alert("Could not load data. Try again.")}
+  S.user=name;S.view="folders";localStorage.setItem("mn_user",name);location.hash=name;render();
+}
+function logout(){localStorage.removeItem("mn_user");history.replaceState(null,"",location.pathname);S={user:null,folders:[],view:"folders"};render()}
+function render(){
+  if(!S.user){$.innerHTML=`<h1>Mistake Notebook</h1><p class="mute">Save the questions and notes you got wrong, then turn them into a quiz.</p>
+  <div class="card"><h2>Open your notebook</h2><p>Pick a username. Every person needs their own.</p><div class="warn"><b>Write your username down.</b> There is no password and no way to recover it. If you forget it, you cannot open your notebook again. Anyone who knows it can open your notebook too.</div>
+  <form id="lf"><input id="un" placeholder="Username (e.g. rasta_2026)" autocomplete="username" autofocus><button class="p">Open notebook</button></form></div>`;
+  document.getElementById("lf").onsubmit=e=>{e.preventDefault();login(document.getElementById("un").value)};return}
+  if(S.view==="folders")return renderFolders();
+  if(S.view==="folder")return renderFolder();
+  if(S.view==="quiz")return renderQuiz();
+}
+function head(){return `<div class="row" style="justify-content:space-between"><h1>Mistake Notebook</h1><span class="mute">${esc(S.user)} · <a href="#" onclick="logout();return false">Switch user</a></span></div>
+<p class="mute">Remember your username. It cannot be recovered. Bookmark this page to come back: <b>${esc(location.href.split("#")[0])}#${esc(S.user)}</b></p>`}
+function renderFolders(){
+  $.innerHTML=head()+`<div class="card"><h2>Folders</h2>${S.folders.length?S.folders.map(f=>`<div class="folder"><div><a onclick="openF('${f.id}')">${esc(f.name)}</a><div class="mute">${f.items.length} item${f.items.length===1?"":"s"}</div></div>
+  <div class="row"><button class="p" ${f.items.length?"":"disabled"} onclick="startQuiz('${f.id}')">Quiz</button><button class="x" onclick="delF('${f.id}')">Delete</button></div></div>`).join(""):`<p class="mute">No folders yet. Create one for a lesson, like "Unit 3 grammar".</p>`}
+  <form id="ff" class="row" style="margin-top:10px"><input class="grow" id="fn" placeholder="New folder name"><button class="p">Add folder</button></form></div>`;
+  document.getElementById("ff").onsubmit=e=>{e.preventDefault();const n=document.getElementById("fn").value.trim();if(!n)return;S.folders.push({id:uid(),name:n,items:[]});save();render()};
+}
+function openF(id){S.fid=id;S.view="folder";render()}
+function delF(id){if(!confirm("Delete this folder and everything in it?"))return;S.folders=S.folders.filter(f=>f.id!==id);save();render()}
+function renderFolder(){
+  const f=folder();
+  $.innerHTML=head()+`<p><a href="#" onclick="S.view='folders';render();return false">← All folders</a></p>
+  <div class="card"><div class="row" style="justify-content:space-between"><h2>${esc(f.name)}</h2><button class="p" ${f.items.length?"":"disabled"} onclick="startQuiz('${f.id}')">Quiz this folder</button></div>
+  ${f.items.length?f.items.map(i=>`<div class="item"><div><span class="tag">${i.type}</span>${esc(i.text)}${i.note?`<div class="mute">${esc(i.note)}</div>`:""}</div><button class="x" onclick="delI('${i.id}')">Delete</button></div>`).join(""):`<p class="mute">Nothing here yet. Add your first mistake below.</p>`}</div>
+  <div class="card"><h2>Add a mistake</h2><form id="af"><select id="ty"><option value="question">Question I got wrong</option><option value="note">Note / rule I got wrong</option></select>
+  <textarea id="tx" placeholder="Paste the question or note, in English" required></textarea>
+  <textarea id="nt" placeholder="Correct answer or explanation (optional, but it makes better quizzes)"></textarea><button class="p">Save</button></form></div>`;
+  document.getElementById("af").onsubmit=e=>{e.preventDefault();f.items.push({id:uid(),type:document.getElementById("ty").value,text:document.getElementById("tx").value.trim(),note:document.getElementById("nt").value.trim()});save();render()};
+}
+function delI(id){const f=folder();f.items=f.items.filter(i=>i.id!==id);save();render()}
+async function startQuiz(id){
+  const f=S.folders.find(x=>x.id===id);S.fid=id;S.view="quiz";S.quiz={loading:true};render();
+  try{
+    const r=await fetch("/api/quiz",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({items:f.items})});
+    const d=await r.json();if(!r.ok||!d.questions?.length)throw new Error(d.error||"Quiz failed");
+    S.quiz={qs:d.questions,i:0,score:0,picked:null,missed:[]};
+  }catch(e){S.quiz={error:e.message}}
+  render();
+}
+function renderQuiz(){
+  const q=S.quiz,f=folder(),back=`<p><a href="#" onclick="S.view='folders';render();return false">← All folders</a></p>`;
+  if(q.loading)return $.innerHTML=head()+back+`<div class="card"><h2>Building your quiz…</h2><p class="mute">Claude is turning "${esc(f.name)}" into questions. This takes a few seconds.</p></div>`;
+  if(q.error)return $.innerHTML=head()+back+`<div class="card"><h2>Could not build the quiz</h2><p>${esc(q.error)}</p><button class="p" onclick="startQuiz('${f.id}')">Try again</button></div>`;
+  if(q.i>=q.qs.length){
+    return $.innerHTML=head()+back+`<div class="card"><h2>Score: ${q.score} / ${q.qs.length}</h2><div class="bar"><i style="width:${q.score/q.qs.length*100}%"></i></div>
+    <p class="mute">${q.missed.length?`You missed ${q.missed.length}.`:"Perfect score."}</p><div class="row">
+    <button class="p" onclick="startQuiz('${f.id}')">New quiz</button>${q.missed.length?`<button onclick="saveMissed()">Save missed to "Still wrong" folder</button>`:""}</div></div>`;
+  }
+  const c=q.qs[q.i];
+  $.innerHTML=head()+back+`<div class="card"><div class="bar"><i style="width:${q.i/q.qs.length*100}%"></i></div><p class="mute">Question ${q.i+1} of ${q.qs.length}</p><h2>${esc(c.q)}</h2>
+  ${c.options.map((o,k)=>`<button class="opt ${q.picked===null?"":k===c.answer?"right":k===q.picked?"wrong":""}" ${q.picked===null?"":"disabled"} onclick="pick(${k})">${esc(o)}</button>`).join("")}
+  ${q.picked!==null?`<p>${q.picked===c.answer?"Correct.":"Not quite."} ${esc(c.explanation||"")}</p><button class="p" onclick="S.quiz.i++;S.quiz.picked=null;render()">${q.i+1>=q.qs.length?"See score":"Next"}</button>`:""}</div>`;
+}
+function pick(k){const q=S.quiz,c=q.qs[q.i];q.picked=k;if(k===c.answer)q.score++;else q.missed.push(c);render()}
+function saveMissed(){
+  let f=S.folders.find(x=>x.name==="Still wrong");if(!f){f={id:uid(),name:"Still wrong",items:[]};S.folders.push(f)}
+  S.quiz.missed.forEach(c=>f.items.push({id:uid(),type:"question",text:c.q+"  ("+c.options.join(" / ")+")",note:"Correct: "+c.options[c.answer]+". "+(c.explanation||"")}));
+  S.quiz.missed=[];save();alert("Saved to the folder \"Still wrong\".");render();
+}
+const start=(location.hash.slice(1)||localStorage.getItem("mn_user")||"");
+start?login(start):render();
+</script>
+</body></html>
